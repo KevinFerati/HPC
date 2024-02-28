@@ -21,50 +21,28 @@ const int16_t sobel_h_kernel[SOBEL_KERNEL_SIZE*SOBEL_KERNEL_SIZE] = {
     -1,  0,  1,
 };
 
-const uint16_t gauss_kernel[GAUSSIAN_KERNEL_SIZE*GAUSSIAN_KERNEL_SIZE] = {
+const int16_t gauss_kernel[GAUSSIAN_KERNEL_SIZE*GAUSSIAN_KERNEL_SIZE] = {
     1, 2, 1,
     2, 4, 2,
     1, 2, 1,
 };
-
-void copy_components(const struct img_1D_t *src,  struct img_1D_t *dest) {
-    dest->width = src->width;
-    dest->height = src->height;
-    dest->components = src->components;
-}
-
-struct img_1D_t *setup_img_1d(const struct img_1D_t* input_img) {
-    const int count_pixels = input_img->height * input_img->width;
-    struct img_1D_t* res = malloc(sizeof(struct img_1D_t));
-    res->data = calloc(count_pixels, sizeof(uint8_t));
-    res->width = input_img->width;
-    res->height = input_img->height;
-    res->components = COMPONENT_GRAYSCALE;
-    return res;
-}
-
-void free_all(struct img_1D_t* img) {
-    free(img->data);
-    img->data = NULL;
-    free(img);
-}
 
 struct img_1D_t *edge_detection_1D(const struct img_1D_t *input_img){
     struct img_1D_t *res_img;
     struct img_1D_t *grayed_gaussian;
     struct img_1D_t *grayed;
 
-    grayed = setup_img_1d(input_img);
+    grayed = allocate_image_1D(input_img->width, input_img->height, COMPONENT_GRAYSCALE);
     rgb_to_grayscale_1D(input_img, grayed);
 
-    grayed_gaussian =  setup_img_1d(input_img);
+    grayed_gaussian =  allocate_image_1D(input_img->width, input_img->height, COMPONENT_GRAYSCALE);
     gaussian_filter_1D(grayed, grayed_gaussian, gauss_kernel);
-    free_all(grayed);
+    free_image(grayed);
     grayed = NULL;
 
-    res_img = setup_img_1d(input_img);
+    res_img = allocate_image_1D(input_img->width, input_img->height, COMPONENT_GRAYSCALE);
     sobel_filter_1D(grayed_gaussian, res_img, sobel_v_kernel, sobel_h_kernel);
-    free_all(grayed_gaussian);
+    free_image(grayed_gaussian);
     grayed_gaussian = NULL;
 
     return res_img;
@@ -85,7 +63,18 @@ void rgb_to_grayscale_1D(const struct img_1D_t *img, struct img_1D_t *result){
     }
 }
 
-void gaussian_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, const uint16_t *kernel){
+int apply_convolutional_kernel_1d(const struct img_1D_t *img, const int16_t *kernel, int curr_row, int curr_col) {
+    int accumulation = 0;
+    for (int img_row = curr_row - 1, kernel_idx = 0; img_row < curr_row + 2; img_row++) {
+        for (int img_col = curr_col - 1; img_col < curr_col + 2; img_col++, kernel_idx++) {
+            const int img_px = img_row * img->width + img_col;
+            accumulation += kernel[kernel_idx] * img->data[img_px];
+        }
+    }
+    return accumulation;
+}
+
+void gaussian_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, const int16_t *kernel){
     const uint16_t gauss_ponderation = 16;
 
     for (int row = 0; row < img->height; ++row) {
@@ -97,36 +86,63 @@ void gaussian_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, co
                 continue;
             }
             // apply the gaussian filter in the center of the image
-            int accumulation = 0;
-            for (int img_row = row - 1, kernel_idx = 0; img_row < row + 2; img_row++) {
-                for (int img_col = col - 1; img_col < col + 2; img_col++, kernel_idx++) {
-                    const int img_px = img_row * img->width + img_col;
-                    accumulation += kernel[kernel_idx] * img->data[img_px];
-                }
-            }
+            int accumulation = apply_convolutional_kernel_1d(img, kernel, row, col);
             accumulation /= gauss_ponderation;
-            res_img->data[current_px]= accumulation;
+            res_img->data[current_px] = accumulation;
 
         }
     }
 }
 
 void sobel_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, const int16_t *v_kernel, const int16_t *h_kernel){
-    //TODO
+    for (int row = 0; row < img->height; ++row) {
+        for (int col = 0; col < img->width; ++col) {
+            const int current_px = row * img->width + col;
+            // at edges, simply copy the source pixel
+            if (row == 0 || row == img->height - 1 || col == 0 || col == img->width - 1) {
+                res_img->data[current_px] = img->data[current_px];
+                continue;
+            }
+
+            int h_value = abs(apply_convolutional_kernel_1d(img, h_kernel, row, col));
+            int v_value = abs(apply_convolutional_kernel_1d(img, v_kernel, row, col));
+
+            if (h_value + v_value >= SOBEL_BINARY_THRESHOLD) {
+                res_img->data[current_px] = 0;
+            } else {
+                res_img->data[current_px] = UINT8_MAX;
+            }
+        }
+    }
 }
 
 
 struct img_chained_t *edge_detection_chained(const struct img_chained_t *input_img){
     struct img_chained_t *res_img;
-    //TODO
+
+    struct img_chained_t *grayed = allocate_image_chained(input_img->width, input_img->height, COMPONENT_GRAYSCALE);
+
+    rgb_to_grayscale_chained(input_img, grayed);
+
+    res_img = grayed;
 
     return res_img;
 }
 
 void rgb_to_grayscale_chained(const struct img_chained_t *img, struct img_chained_t *result){
+    struct pixel_t *current_pixel = img->first_pixel;
+    struct pixel_t *res_current_pixel = result->first_pixel;
+    while (current_pixel != NULL) {
 
-    //TODO
+        *res_current_pixel->pixel_val =
+            current_pixel->pixel_val[R_OFFSET] * FACTOR_R
+          + current_pixel->pixel_val[G_OFFSET] * FACTOR_G
+          + current_pixel->pixel_val[B_OFFSET] * FACTOR_B;
 
+
+        res_current_pixel = res_current_pixel->next_pixel;
+        current_pixel = current_pixel->next_pixel;
+    }
 }
 
 void gaussian_filter_chained(const struct img_chained_t *img, struct img_chained_t *res_img, const uint16_t *kernel){

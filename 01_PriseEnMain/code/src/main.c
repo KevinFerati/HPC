@@ -30,10 +30,8 @@ int main(int argc, char** argv) {
         img_1d = load_image_1D(argv[1]);
         result_img = edge_detection_1D(img_1d);
         save_image(argv[2], result_img);
-        free(result_img->data);
-        free(result_img);
-        free(img_1d->data);
-        free(img_1d);
+        free_image(result_img);
+        free_image(img_1d);
     } else if (mode == 2){
         img_chained = load_image_chained(argv[1]);
         result_img_chained = edge_detection_chained(img_chained);
