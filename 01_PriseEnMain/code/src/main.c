@@ -15,25 +15,34 @@ int main(int argc, char** argv) {
     struct img_1D_t *result_img;
     struct img_chained_t *result_img_chained;
 
-    int mode;
-
-    if (argc != EXPECTED_NB_ARGS) {
-        fprintf(stderr, "Invalid number of arguments\n");
-        print_usage();
-        return EXIT_FAILURE;
-    }
-
-    mode = atoi(argv[3]);
-
-    if(mode == 1){
-        img_1d = load_image_1D(argv[1]);
-        result_img = edge_detection_1D(img_1d);
-        save_image(argv[2], result_img);
-    } else if (mode == 2){
-        img_chained = load_image_chained(argv[1]);
-        result_img_chained = edge_detection_chained(img_chained);
-        save_image_chained(argv[2], result_img_chained);
-    }
+    img_1d = load_image_1D("./images/half-life.png");
+    printf("Loaded image");
+    struct img_1D_t* gray  = malloc(sizeof(struct img_1D_t));
+    rgb_to_grayscale_1D(img_1d, gray);
+    save_image("./gray_nyc.png", gray);
+    free(gray);
+    gray = NULL;
+    free(img_1d);
+    img_1d = NULL;
+    // int mode;
+    //
+    // if (argc != EXPECTED_NB_ARGS) {
+    //     fprintf(stderr, "Invalid number of arguments\n");
+    //     print_usage();
+    //     return EXIT_FAILURE;
+    // }
+    //
+    // mode = atoi(argv[3]);
+    //
+    // if(mode == 1){
+    //     img_1d = load_image_1D(argv[1]);
+    //     result_img = edge_detection_1D(img_1d);
+    //     save_image(argv[2], result_img);
+    // } else if (mode == 2){
+    //     img_chained = load_image_chained(argv[1]);
+    //     result_img_chained = edge_detection_chained(img_chained);
+    //     save_image_chained(argv[2], result_img_chained);
+    // }
 
     return 0;
 }

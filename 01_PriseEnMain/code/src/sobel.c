@@ -36,11 +36,25 @@ struct img_1D_t *edge_detection_1D(const struct img_1D_t *input_img){
 }
 
 void rgb_to_grayscale_1D(const struct img_1D_t *img, struct img_1D_t *result){
-    float r, g, b = 0.0f;
+    // init a new image
+    const int count_pixels = img->height * img->width;
+    result->data = calloc(count_pixels, sizeof(uint8_t));
+    result->width = img->width;
+    result->height = img->height;
+    result->components = COMPONENT_GRAYSCALE;
 
+    // copy each grayscaled pixel to the destination
+    for (int current_pixel = 0, result_px = 0;
+        result_px < count_pixels;
+        current_pixel += img->components, ++result_px) {
 
+            const uint8_t grayscaled_px =
+                img->data[current_pixel + R_OFFSET] * FACTOR_R
+              + img->data[current_pixel + G_OFFSET] * FACTOR_G
+              + img->data[current_pixel + B_OFFSET] * FACTOR_B;
 
-    //TODO
+            result->data[result_px] = grayscaled_px;
+    }
 }
 
 void gaussian_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, const uint16_t *kernel){
@@ -73,8 +87,8 @@ void gaussian_filter_chained(const struct img_chained_t *img, struct img_chained
     //TODO
 }
 
-void sobel_filter_chained(const struct img_chained_t *img, struct img_chained_t *res_img, 
+void sobel_filter_chained(const struct img_chained_t *img, struct img_chained_t *res_img,
                   const int16_t *v_kernel, const int16_t *h_kernel){
-    
+
     //TODO
 }

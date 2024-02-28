@@ -20,7 +20,7 @@ struct img_1D_t {
     int height;
     int components;
 
-    uint8_t *data; // Cycle entre R, G, B, A
+    uint8_t *data; // Cycle entre R, G, B, (A)
 };
 
 struct pixel_t {
