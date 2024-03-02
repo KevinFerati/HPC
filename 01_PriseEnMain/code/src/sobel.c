@@ -27,6 +27,21 @@ const int16_t gauss_kernel[GAUSSIAN_KERNEL_SIZE*GAUSSIAN_KERNEL_SIZE] = {
     1, 2, 1,
 };
 
+
+/**
+ * \brief Convert the img pixels (assuming a single component) to an array of uint8_t
+ * \param img the source image to be converted
+ * \param dest the destination one, must be preallocated
+ */
+void data_to_local(const struct img_chained_t *img, uint8_t *dest) {
+    struct pixel_t* current_pixel = img->first_pixel;
+    for (int pixel = img->height * img->width - 1; pixel >= 0; --pixel) {
+        dest[pixel] = *current_pixel->pixel_val;
+        current_pixel = current_pixel->next_pixel;
+    }
+}
+
+
 struct img_1D_t *edge_detection_1D(const struct img_1D_t *input_img){
     struct img_1D_t *res_img;
     struct img_1D_t *grayed_gaussian;
@@ -63,12 +78,18 @@ void rgb_to_grayscale_1D(const struct img_1D_t *img, struct img_1D_t *result){
     }
 }
 
-int apply_convolutional_kernel_1d(const struct img_1D_t *img, const int16_t *kernel, int curr_row, int curr_col) {
+int apply_convolutional_kernel(
+    int img_width,
+    uint8_t *img_data,
+    const int16_t *kernel,
+    int curr_row,
+    int curr_col) {
+
     int accumulation = 0;
     for (int img_row = curr_row - 1, kernel_idx = 0; img_row < curr_row + 2; img_row++) {
         for (int img_col = curr_col - 1; img_col < curr_col + 2; img_col++, kernel_idx++) {
-            const int img_px = img_row * img->width + img_col;
-            accumulation += kernel[kernel_idx] * img->data[img_px];
+            const int img_px = img_row * img_width + img_col;
+            accumulation += kernel[kernel_idx] * img_data[img_px];
         }
     }
     return accumulation;
@@ -86,7 +107,7 @@ void gaussian_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, co
                 continue;
             }
             // apply the gaussian filter in the center of the image
-            int accumulation = apply_convolutional_kernel_1d(img, kernel, row, col);
+            int accumulation = apply_convolutional_kernel(img->width, img->data, kernel, row, col);
             accumulation /= gauss_ponderation;
             res_img->data[current_px] = accumulation;
 
@@ -104,8 +125,8 @@ void sobel_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, const
                 continue;
             }
 
-            int h_value = abs(apply_convolutional_kernel_1d(img, h_kernel, row, col));
-            int v_value = abs(apply_convolutional_kernel_1d(img, v_kernel, row, col));
+            int h_value = abs(apply_convolutional_kernel(img->width, img->data, h_kernel, row, col));
+            int v_value = abs(apply_convolutional_kernel(img->width, img->data, v_kernel, row, col));
 
             if (h_value + v_value >= SOBEL_BINARY_THRESHOLD) {
                 res_img->data[current_px] = 0;
@@ -119,13 +140,16 @@ void sobel_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, const
 
 struct img_chained_t *edge_detection_chained(const struct img_chained_t *input_img){
     struct img_chained_t *res_img;
-
+    struct img_chained_t *grayed_gaussian;
     struct img_chained_t *grayed = allocate_image_chained(input_img->width, input_img->height, COMPONENT_GRAYSCALE);
 
     rgb_to_grayscale_chained(input_img, grayed);
-
-    res_img = grayed;
-
+    //save_image_chained("./grayed.png", grayed);
+    grayed_gaussian = allocate_image_chained(input_img->width, input_img->height, COMPONENT_GRAYSCALE);
+    gaussian_filter_chained(grayed, grayed_gaussian, gauss_kernel);
+    // free grayed
+    res_img = allocate_image_chained(input_img->width, input_img->height, COMPONENT_GRAYSCALE);
+    sobel_filter_chained(grayed_gaussian, res_img, sobel_v_kernel, sobel_h_kernel);
     return res_img;
 }
 
@@ -145,14 +169,49 @@ void rgb_to_grayscale_chained(const struct img_chained_t *img, struct img_chaine
     }
 }
 
-void gaussian_filter_chained(const struct img_chained_t *img, struct img_chained_t *res_img, const uint16_t *kernel){
+void gaussian_filter_chained(const struct img_chained_t *img, struct img_chained_t *res_img, const int16_t *kernel){
     const uint16_t gauss_ponderation = 16;
+    uint8_t pixels[img->width * img->height];
+    data_to_local(img, pixels);
 
-    //TODO
+    struct pixel_t *res_current_pixel = res_img->first_pixel;
+    for (int row = img->height - 1; row >= 0; --row) {
+        for (int col = img->width - 1; col >= 0; --col) {
+            if (row == 0 || row == img->height - 1 || col == 0 || col == img->width - 1) {
+                *res_current_pixel->pixel_val = pixels[row * img->width + col];
+            } else {
+                // apply the gaussian filter in the center of the image
+                int accumulation = apply_convolutional_kernel(img->width, pixels, gauss_kernel, row, col);
+                accumulation /= gauss_ponderation;
+                *res_current_pixel->pixel_val = accumulation;
+            }
+            res_current_pixel = res_current_pixel->next_pixel;
+        }
+    }
+
 }
 
 void sobel_filter_chained(const struct img_chained_t *img, struct img_chained_t *res_img,
                   const int16_t *v_kernel, const int16_t *h_kernel){
+    uint8_t pixels[img->width * img->height];
+    data_to_local(img, pixels);
+    struct pixel_t *res_current_pixel = res_img->first_pixel;
+    for (int row = img->height - 1; row >= 0; --row) {
+        for (int col = img->width - 1; col >= 0; --col) {
+            if (row == 0 || row == img->height - 1 || col == 0 || col == img->width - 1) {
+                *res_current_pixel->pixel_val = pixels[row * img->width + col];
+            } else {
+                const int h_value = abs(apply_convolutional_kernel(img->width, pixels, h_kernel, row, col));
+                const int v_value = abs(apply_convolutional_kernel(img->width, pixels, v_kernel, row, col));
 
-    //TODO
+                if (h_value + v_value >= SOBEL_BINARY_THRESHOLD) {
+                    *res_current_pixel->pixel_val = 0;
+                } else {
+                    *res_current_pixel->pixel_val = UINT8_MAX;
+                }
+            }
+            res_current_pixel = res_current_pixel->next_pixel;
+        }
+    }
 }
+

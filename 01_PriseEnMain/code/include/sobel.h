@@ -12,7 +12,7 @@ struct img_chained_t *edge_detection_chained(const struct img_chained_t *input_i
 
 void rgb_to_grayscale_chained(const struct img_chained_t *img, struct img_chained_t *result);
 
-void gaussian_filter_chained(const struct img_chained_t *img, struct img_chained_t *res_img, const uint16_t *kernel);
+void gaussian_filter_chained(const struct img_chained_t *img, struct img_chained_t *res_img, const int16_t *kernel);
 
 void sobel_filter_chained(const struct img_chained_t *img, struct img_chained_t *res_img, 
                   const int16_t *v_kernel, const int16_t *h_kernel);
