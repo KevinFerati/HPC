@@ -27,7 +27,7 @@ likwid-bench -t triad -W N:256KB
 
 2ème :
 MByte/s:                477301.43
-
+ 
  
 
 likwid-bench -t triad -W N:2GB
