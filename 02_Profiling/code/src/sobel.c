@@ -124,20 +124,29 @@ void gaussian_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, co
 
 	const uint16_t gauss_ponderation = 16;
 
-    for (int row = 0; row < img->height; ++row) {
-        for (int col = 0; col < img->width; ++col) {
-            const int current_px = row * img->width + col;
-            // at edges, simply copy the source pixel
-            if (row == 0 || row == img->height - 1 || col == 0 || col == img->width - 1) {
-                res_img->data[current_px] = img->data[current_px];
-                continue;
-            }
+    // copy the whole row
+    for (int col = 0; col < img->width; ++col) {
+        res_img->data[col] = img->data[col];
+    }
 
+    for (int row = 1; row < img->height - 1; ++row) {
+        // copy the first and last columns
+        const int row_begin = row * img->width;
+        const int row_end = row_begin + img->width - 1;
+        res_img->data[row_begin] = img->data[row_begin];
+        res_img->data[row_end] = img->data[row_end];
+        for (int col = 1; col < img->width - 1; ++col) {
+            const int current_px = row_begin + col;
             // apply the gaussian filter in the center of the image
             int accumulation = apply_convolutional_kernel(img->width, img->data, kernel, row, col);
             res_img->data[current_px] = accumulation / gauss_ponderation;
-
         }
+    }
+
+    // copy the whole row
+    const int last_row = img->width * (img->height - 1);
+    for (int col = 0; col < img->width; ++col) {
+        res_img->data[last_row + col] = img->data[last_row + col];
     }
 }
 

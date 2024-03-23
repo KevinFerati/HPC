@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CLionExternalBuildManager">
+    <target id="1cb48127-0240-4c00-ac18-d3c8da761e03" name="Remote" defaultType="MAKE">
+      <configuration id="f1656bc8-f50f-4016-b1ae-bceee2ebaf42" name="Remote" toolchainName="Remote Host" />
+    </target>
+  </component>
+</project>

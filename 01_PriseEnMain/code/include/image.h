@@ -47,3 +47,4 @@ struct img_1D_t *allocate_image_1D(int width, int height, int components);
 struct img_chained_t *allocate_image_chained(int width, int height, int components);
 
 void free_image(struct img_1D_t *img);
+void free_image_chained(struct img_chained_t *img);

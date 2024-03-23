@@ -240,3 +240,14 @@ void free_image(struct img_1D_t *img) {
     stbi_image_free(img->data);
     free(img);
 }
+
+void free_image_chained(struct img_chained_t *img) {
+    struct pixel_t *pixel = img->first_pixel;
+    while (pixel != NULL) {
+        struct pixel_t *temp = pixel->next_pixel;
+        stbi_image_free(pixel->pixel_val);
+        free(pixel);
+        pixel = temp;
+
+    }
+}

@@ -36,6 +36,8 @@ int main(int argc, char** argv) {
         img_chained = load_image_chained(argv[1]);
         result_img_chained = edge_detection_chained(img_chained);
         save_image_chained(argv[2], result_img_chained);
+        free_image_chained(result_img_chained);
+        free_image_chained(img_chained);
     }
 
     return 0;

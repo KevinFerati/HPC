@@ -8,6 +8,8 @@
 #define GAUSSIAN_KERNEL_SIZE    3
 #define SOBEL_KERNEL_SIZE       3
 #define SOBEL_BINARY_THRESHOLD  150  // in the range 0 to uint8_max (255)
+#define BLACK 0
+#define WHITE 255
 
 const int16_t sobel_v_kernel[SOBEL_KERNEL_SIZE*SOBEL_KERNEL_SIZE] = {
     -1, -2, -1,
@@ -39,6 +41,31 @@ void data_to_local(const struct img_chained_t *img, uint8_t *dest) {
         dest[pixel] = *current_pixel->pixel_val;
         current_pixel = current_pixel->next_pixel;
     }
+}
+
+/**
+ * \brief  Apply a convolutional kernel on the image data (assuming a 1d array) and returns its sum
+ * \param img_width Width of the original image
+ * \param img_data Pixels of the original image
+ * \param kernel Which kernel to apply
+ * \param curr_row The current row in te main iteration (the y component of the pixel coords)
+ * \param curr_col The current col in the main iteration (the x component of the pixel coords)
+ */
+int apply_convolutional_kernel(
+    int img_width,
+    uint8_t *img_data,
+    const int16_t *kernel,
+    int curr_row,
+    int curr_col) {
+
+    int accumulation = 0;
+    for (int img_row = curr_row - 1, kernel_idx = 0; img_row < curr_row + 2; img_row++) {
+        for (int img_col = curr_col - 1; img_col < curr_col + 2; img_col++, kernel_idx++) {
+            const int img_px = img_row * img_width + img_col;
+            accumulation += kernel[kernel_idx] * img_data[img_px];
+        }
+    }
+    return accumulation;
 }
 
 
@@ -78,23 +105,6 @@ void rgb_to_grayscale_1D(const struct img_1D_t *img, struct img_1D_t *result){
     }
 }
 
-int apply_convolutional_kernel(
-    int img_width,
-    uint8_t *img_data,
-    const int16_t *kernel,
-    int curr_row,
-    int curr_col) {
-
-    int accumulation = 0;
-    for (int img_row = curr_row - 1, kernel_idx = 0; img_row < curr_row + 2; img_row++) {
-        for (int img_col = curr_col - 1; img_col < curr_col + 2; img_col++, kernel_idx++) {
-            const int img_px = img_row * img_width + img_col;
-            accumulation += kernel[kernel_idx] * img_data[img_px];
-        }
-    }
-    return accumulation;
-}
-
 void gaussian_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, const int16_t *kernel){
     const uint16_t gauss_ponderation = 16;
 
@@ -108,8 +118,7 @@ void gaussian_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, co
             }
             // apply the gaussian filter in the center of the image
             int accumulation = apply_convolutional_kernel(img->width, img->data, kernel, row, col);
-            accumulation /= gauss_ponderation;
-            res_img->data[current_px] = accumulation;
+            res_img->data[current_px] = accumulation / gauss_ponderation;
 
         }
     }
@@ -129,9 +138,9 @@ void sobel_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, const
             int v_value = abs(apply_convolutional_kernel(img->width, img->data, v_kernel, row, col));
 
             if (h_value + v_value >= SOBEL_BINARY_THRESHOLD) {
-                res_img->data[current_px] = 0;
+                res_img->data[current_px] = BLACK;
             } else {
-                res_img->data[current_px] = UINT8_MAX;
+                res_img->data[current_px] = WHITE;
             }
         }
     }
@@ -139,17 +148,19 @@ void sobel_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, const
 
 
 struct img_chained_t *edge_detection_chained(const struct img_chained_t *input_img){
-    struct img_chained_t *res_img;
-    struct img_chained_t *grayed_gaussian;
     struct img_chained_t *grayed = allocate_image_chained(input_img->width, input_img->height, COMPONENT_GRAYSCALE);
-
     rgb_to_grayscale_chained(input_img, grayed);
-    //save_image_chained("./grayed.png", grayed);
-    grayed_gaussian = allocate_image_chained(input_img->width, input_img->height, COMPONENT_GRAYSCALE);
+
+    struct img_chained_t *grayed_gaussian  = allocate_image_chained(input_img->width, input_img->height, COMPONENT_GRAYSCALE);
     gaussian_filter_chained(grayed, grayed_gaussian, gauss_kernel);
-    // free grayed
-    res_img = allocate_image_chained(input_img->width, input_img->height, COMPONENT_GRAYSCALE);
+    free_image_chained(grayed);
+    grayed = NULL;
+
+    struct img_chained_t *res_img = allocate_image_chained(input_img->width, input_img->height, COMPONENT_GRAYSCALE);
     sobel_filter_chained(grayed_gaussian, res_img, sobel_v_kernel, sobel_h_kernel);
+    free_image_chained(grayed_gaussian);
+    grayed_gaussian = NULL;
+
     return res_img;
 }
 
@@ -177,13 +188,13 @@ void gaussian_filter_chained(const struct img_chained_t *img, struct img_chained
     struct pixel_t *res_current_pixel = res_img->first_pixel;
     for (int row = img->height - 1; row >= 0; --row) {
         for (int col = img->width - 1; col >= 0; --col) {
+            // copy the pixel in the borders
             if (row == 0 || row == img->height - 1 || col == 0 || col == img->width - 1) {
                 *res_current_pixel->pixel_val = pixels[row * img->width + col];
-            } else {
-                // apply the gaussian filter in the center of the image
+            } else {  // apply the filter
+
                 int accumulation = apply_convolutional_kernel(img->width, pixels, gauss_kernel, row, col);
-                accumulation /= gauss_ponderation;
-                *res_current_pixel->pixel_val = accumulation;
+                *res_current_pixel->pixel_val = accumulation / gauss_ponderation;
             }
             res_current_pixel = res_current_pixel->next_pixel;
         }
@@ -198,6 +209,7 @@ void sobel_filter_chained(const struct img_chained_t *img, struct img_chained_t 
     struct pixel_t *res_current_pixel = res_img->first_pixel;
     for (int row = img->height - 1; row >= 0; --row) {
         for (int col = img->width - 1; col >= 0; --col) {
+            // copy the pixel in the borders
             if (row == 0 || row == img->height - 1 || col == 0 || col == img->width - 1) {
                 *res_current_pixel->pixel_val = pixels[row * img->width + col];
             } else {
@@ -205,9 +217,9 @@ void sobel_filter_chained(const struct img_chained_t *img, struct img_chained_t 
                 const int v_value = abs(apply_convolutional_kernel(img->width, pixels, v_kernel, row, col));
 
                 if (h_value + v_value >= SOBEL_BINARY_THRESHOLD) {
-                    *res_current_pixel->pixel_val = 0;
+                    *res_current_pixel->pixel_val = BLACK;
                 } else {
-                    *res_current_pixel->pixel_val = UINT8_MAX;
+                    *res_current_pixel->pixel_val = WHITE;
                 }
             }
             res_current_pixel = res_current_pixel->next_pixel;

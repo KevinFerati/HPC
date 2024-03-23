@@ -39,3 +39,10 @@ likwid-bench -t triad -W N:4MB
 
 likwid-bench -t triad_avx -W N:256KB
 ![img_10.png](img_10.png)
+
+ 
+
+ Valeurs retenues : 
+ 
+ maxperf = 455338.4
+ maxband = 
