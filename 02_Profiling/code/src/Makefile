@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS= -O3 -g -Wall -I../../lib/stb/ -I../include -fno-inline -DLIKWID_PERFMON
+CFLAGS= -O3 -g -Wall -I../../lib/stb/ -I../include -fno-inline -fdump-tree-optimized -DLIKWID_PERFMON
 LDFLAGS= -lm -llikwid
 DEBUGFLAGS= -std=c11 -Wall -Wextra -pedantic -g -I../../lib/stb/ -I../include
 
