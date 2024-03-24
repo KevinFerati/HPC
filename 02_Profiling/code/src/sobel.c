@@ -11,6 +11,8 @@
 #define BLACK 0
 #define WHITE 255
 
+
+
 const int16_t sobel_v_kernel[SOBEL_KERNEL_SIZE*SOBEL_KERNEL_SIZE] = {
     -1, -2, -1,
      0,  0,  0,
@@ -88,28 +90,21 @@ struct img_1D_t *edge_detection_1D(const struct img_1D_t *input_img){
     LIKWID_MARKER_REGISTER("greyscaling");
     LIKWID_MARKER_REGISTER("gauss");
     LIKWID_MARKER_REGISTER("sobel");
-    LIKWID_MARKER_REGISTER("convolutional");
+    LIKWID_MARKER_REGISTER("branch");
 
     grayed = allocate_image_1D(input_img->width, input_img->height, COMPONENT_GRAYSCALE);
 
-    LIKWID_MARKER_START("greyscaling");
     rgb_to_grayscale_1D(input_img, grayed);
-    LIKWID_MARKER_STOP("greyscaling");
 
     grayed_gaussian =  allocate_image_1D(input_img->width, input_img->height, COMPONENT_GRAYSCALE);
-
-    LIKWID_MARKER_START("gauss");
     gaussian_filter_1D(grayed, grayed_gaussian, gauss_kernel);
-    LIKWID_MARKER_STOP("gauss");
 
     free_image(grayed);
     grayed = NULL;
 
     res_img = allocate_image_1D(input_img->width, input_img->height, COMPONENT_GRAYSCALE);
 
-	LIKWID_MARKER_START("sobel");
 	sobel_filter_1D(grayed_gaussian, res_img, sobel_v_kernel, sobel_h_kernel);
-    LIKWID_MARKER_STOP("sobel");
 
     free_image(grayed_gaussian);
     grayed_gaussian = NULL;
@@ -176,7 +171,6 @@ void sobel_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, const
             const int current_px = row_begin + col;
             int h_value = abs(sum_accumulation(img->width, img->data, h_kernel, current_px));
             int v_value = abs(sum_accumulation(img->width, img->data, v_kernel, current_px));
-
             if (h_value + v_value >= SOBEL_BINARY_THRESHOLD) {
                 res_img->data[current_px] = BLACK;
             } else {
