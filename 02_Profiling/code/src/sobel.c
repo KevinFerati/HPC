@@ -31,20 +31,6 @@ const int16_t gauss_kernel[GAUSSIAN_KERNEL_SIZE*GAUSSIAN_KERNEL_SIZE] = {
     1, 2, 1,
 };
 
-
-/**
- * \brief Convert the img pixels (assuming a single component) to an array of uint8_t
- * \param img the source image to be converted
- * \param dest the destination one, must be preallocated
- */
-void data_to_local(const struct img_chained_t *img, uint8_t *dest) {
-    struct pixel_t* current_pixel = img->first_pixel;
-    for (int pixel = img->height * img->width - 1; pixel >= 0; --pixel) {
-        dest[pixel] = *current_pixel->pixel_val;
-        current_pixel = current_pixel->next_pixel;
-    }
-}
-
 /**
  * \brief  Apply a convolutional kernel on the image data (assuming a 1d array) and returns its sum
  * \param img_width Width of the original image
@@ -90,21 +76,28 @@ struct img_1D_t *edge_detection_1D(const struct img_1D_t *input_img){
     LIKWID_MARKER_REGISTER("greyscaling");
     LIKWID_MARKER_REGISTER("gauss");
     LIKWID_MARKER_REGISTER("sobel");
-    LIKWID_MARKER_REGISTER("branch");
+    //LIKWID_MARKER_REGISTER("branch");
 
     grayed = allocate_image_1D(input_img->width, input_img->height, COMPONENT_GRAYSCALE);
 
+    LIKWID_MARKER_START("greyscaling");
     rgb_to_grayscale_1D(input_img, grayed);
+    LIKWID_MARKER_STOP("greyscaling");
 
     grayed_gaussian =  allocate_image_1D(input_img->width, input_img->height, COMPONENT_GRAYSCALE);
+
+    LIKWID_MARKER_START("gauss");
     gaussian_filter_1D(grayed, grayed_gaussian, gauss_kernel);
+    LIKWID_MARKER_STOP("gauss");
 
     free_image(grayed);
     grayed = NULL;
 
     res_img = allocate_image_1D(input_img->width, input_img->height, COMPONENT_GRAYSCALE);
 
+    LIKWID_MARKER_START("sobel");
 	sobel_filter_1D(grayed_gaussian, res_img, sobel_v_kernel, sobel_h_kernel);
+    LIKWID_MARKER_STOP("sobel");
 
     free_image(grayed_gaussian);
     grayed_gaussian = NULL;
@@ -169,8 +162,10 @@ void sobel_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, const
         res_img->data[row_begin] = img->data[row_begin];
         for (int col = 1; col < img->width - 1; ++col) {
             const int current_px = row_begin + col;
-            int h_value = abs(sum_accumulation(img->width, img->data, h_kernel, current_px));
-            int v_value = abs(sum_accumulation(img->width, img->data, v_kernel, current_px));
+            int h_value_r = sum_accumulation(img->width, img->data, h_kernel, current_px);
+            int v_value_r = sum_accumulation(img->width, img->data, v_kernel, current_px);
+            int h_value = abs(h_value_r);
+            int v_value = abs(v_value_r);
             if (h_value + v_value >= SOBEL_BINARY_THRESHOLD) {
                 res_img->data[current_px] = BLACK;
             } else {
