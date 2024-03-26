@@ -13,19 +13,19 @@
 
 
 
-const int16_t sobel_v_kernel[SOBEL_KERNEL_SIZE*SOBEL_KERNEL_SIZE] = {
+const int sobel_v_kernel[SOBEL_KERNEL_SIZE*SOBEL_KERNEL_SIZE] = {
     -1, -2, -1,
      0,  0,  0,
      1,  2,  1,
 };
 
-const int16_t sobel_h_kernel[SOBEL_KERNEL_SIZE*SOBEL_KERNEL_SIZE] = {
+const int sobel_h_kernel[SOBEL_KERNEL_SIZE*SOBEL_KERNEL_SIZE] = {
     -1,  0,  1,
     -2,  0,  2,
     -1,  0,  1,
 };
 
-const int16_t gauss_kernel[GAUSSIAN_KERNEL_SIZE*GAUSSIAN_KERNEL_SIZE] = {
+const int gauss_kernel[GAUSSIAN_KERNEL_SIZE*GAUSSIAN_KERNEL_SIZE] = {
     1, 2, 1,
     2, 4, 2,
     1, 2, 1,
@@ -42,16 +42,14 @@ const int16_t gauss_kernel[GAUSSIAN_KERNEL_SIZE*GAUSSIAN_KERNEL_SIZE] = {
 int sum_accumulation(
     int img_width,
     uint8_t *img_data,
-    const int16_t *kernel,
+    const int *kernel,
     int current_px) {
-
 
     int accumulation = 0;
 
     const int last_row = current_px - img_width;
     const int next_row = current_px + img_width;
-
-    accumulation += kernel[0] * img_data[last_row - 1];
+    accumulation = kernel[0] * img_data[last_row - 1];
     accumulation += kernel[1] * img_data[last_row];
     accumulation += kernel[2] * img_data[last_row + 1];
 
@@ -105,22 +103,19 @@ struct img_1D_t *edge_detection_1D(const struct img_1D_t *input_img){
     return res_img;
 }
 
-void rgb_to_grayscale_1D(const struct img_1D_t *img, struct img_1D_t *result){
+void rgb_to_grayscale_1D(const struct img_1D_t *img, struct img_1D_t *result) {
     // copy each grayscaled pixel to the destination
     for (int current_pixel = 0, result_px = 0;
         result_px < img->width * img->height;
         current_pixel += img->components, ++result_px) {
-
-            const uint8_t grayscaled_px =
+            result->data[result_px] =
                 img->data[current_pixel + R_OFFSET] * FACTOR_R
               + img->data[current_pixel + G_OFFSET] * FACTOR_G
               + img->data[current_pixel + B_OFFSET] * FACTOR_B;
-
-            result->data[result_px] = grayscaled_px;
     }
 }
 
-void gaussian_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, const int16_t *kernel){
+void gaussian_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, const int *kernel){
 
 	const uint16_t gauss_ponderation = 16;
 
@@ -150,7 +145,7 @@ void gaussian_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, co
     }
 }
 
-void sobel_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, const int16_t *v_kernel, const int16_t *h_kernel){
+void sobel_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, const int *v_kernel, const int *h_kernel){
     // copy the whole row
     for (int col = 0; col < img->width; ++col) {
         res_img->data[col] = img->data[col];
@@ -162,14 +157,13 @@ void sobel_filter_1D(const struct img_1D_t *img, struct img_1D_t *res_img, const
         res_img->data[row_begin] = img->data[row_begin];
         for (int col = 1; col < img->width - 1; ++col) {
             const int current_px = row_begin + col;
-            int h_value_r = sum_accumulation(img->width, img->data, h_kernel, current_px);
-            int v_value_r = sum_accumulation(img->width, img->data, v_kernel, current_px);
-            int h_value = abs(h_value_r);
-            int v_value = abs(v_value_r);
-            if (h_value + v_value >= SOBEL_BINARY_THRESHOLD) {
+            int16_t h_value_r = sum_accumulation(img->width, img->data, h_kernel, current_px);
+            int16_t v_value_r = sum_accumulation(img->width, img->data, v_kernel, current_px);
+            int16_t h_value = abs(h_value_r);
+            int16_t v_value = abs(v_value_r);
+
+            if (h_value + v_value < SOBEL_BINARY_THRESHOLD) {
                 res_img->data[current_px] = BLACK;
-            } else {
-                res_img->data[current_px] = WHITE;
             }
         }
         const int row_end = row_begin + img->width - 1;
